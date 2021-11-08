@@ -16,9 +16,9 @@ clean:
 	$(RM) $(TARGET)
 
 run:
-	ssh $(SSHHOST) 'exec PRJS/spi/spi'
+	ssh $(SSHHOST) 'exec PRJS/spi/spi -m6 /dev/spidev1.0'
 debug:
-	ssh $(SSHHOST) 'nohup gdbserver host:4444 PRJS/spi/spi -r 2 /dev/spidev0.0\
+	ssh $(SSHHOST) 'nohup gdbserver host:4444 PRJS/spi/spi -r 2 /dev/spidev1.0\
 	 >/dev/null 2>&1 &'
 
 kill:

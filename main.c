@@ -129,6 +129,7 @@ static void ads1220_sync(int fd)
 	uint8_t cmd = ADS1220_CMD_SYNC;
 	spi_transfer(fd, &cmd, NULL, 1);
 }
+
 static void ads1220_pwrDown(int fd) 
 {
 	printf("Enter power-down mode\n");
@@ -146,7 +147,7 @@ static uint8_t ads1220_readReg(int fd, uint8_t reg)
 	return rx[1];
 }
 
-// TODO: nedd full duplex here
+// TODO: need full duplex here
 static void ads1220_readAllRegs(int fd, uint8_t *ret) 
 {
 	printf("Read all 4 registers \n");
@@ -154,6 +155,7 @@ static void ads1220_readAllRegs(int fd, uint8_t *ret)
 	uint8_t tx[] = {cmd, 0, 0, 0, 0};
 	spi_transfer(fd, tx, ret, 5);
 }
+
 static void ads1220_writeReg(int fd, uint8_t reg, uint8_t val) 
 {
 	printf("Write registers %02X with value %02X\n", reg, val);
@@ -175,10 +177,11 @@ static void ads1220_writeAllRegs(int fd, uint8_t *regs)
 static void ads1220_config(int fd) 
 {
 	uint8_t config[] = {
-		0x43, 
-		0b11000100,
-		0x04,
-		0x10
+		// p = AIN0, n = AVSS, gain = 1, PGA disabled
+		ADS1220_MUX_0_G | ADS1220_PGA_BYPASS,   
+		ADS1220_DR_1000 |ADS1220_MODE_TURBO | ADS1220_CC , 
+		ADS1220_REJECT_50, // 100
+		0
 	};
 	uint8_t regs_check[5];
 

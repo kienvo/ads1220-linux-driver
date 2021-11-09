@@ -166,38 +166,44 @@ static void ads1220_writeReg(int fd, uint8_t reg, uint8_t val)
 static void ads1220_writeAllRegs(int fd, uint8_t *regs) 
 {
 	printf("Write all 4 regs with %02X %02X %02X %02X\n",
-		 reg[0], reg[1], reg[2], reg[3]);
-	uint8_t cmd = ADS1220_CMD_WREG | (reg << 2) | 0b11;
-	uint8_t tx[] = {cmd, reg[0], reg[1], reg[2], reg[3]};
+		 regs[0], regs[1], regs[2], regs[3]);
+	uint8_t cmd = ADS1220_CMD_WREG | 0b11;
+	uint8_t tx[] = {cmd, regs[0], regs[1], regs[2], regs[3]};
 	spi_transfer(fd, tx, NULL, sizeof(tx));	
+}
+
+static void ads1220_config(int fd) 
+{
+	uint8_t config[] = {
+		0x43, 
+		0b11000100,
+		0x04,
+		0x10
+	};
+	uint8_t regs_check[5];
+
+	ads1220_writeAllRegs(fd, config);
+	ads1220_readAllRegs(fd, regs_check);
+	if(memcmp(config, &regs_check[1], 4)) 
+		pabort("Fail to config the device, or lost connect!\n"
+		"Please recheck the connection.");
 }
 
 static void ads1220_init(int fd)
 {
-	uint8_t regs[5];
 	uint8_t test_tx[] = {
 		0b00010000, 0, 0, 0
 	};
 	uint8_t test_rx[5];
 	ads1220_reset(fd);
-
-	
-
-	ads1220_writeReg(fd, ADS1220_0_REGISTER, 
-		0x43); // 0x43 - 0100 0011
-	ads1220_writeReg(fd, ADS1220_1_REGISTER, 0b11000100);
-	ads1220_writeReg(fd, ADS1220_2_REGISTER, 0x04);
-	ads1220_writeReg(fd, ADS1220_3_REGISTER, 0x10);
-	ads1220_readAllRegs(fd, regs);
+	ads1220_config(fd);
 	ads1220_sync(fd);
 }
-
-
 
 static void spi_init(int fd) {
 	uint8_t mode = SPI_MODE_1;
 	if (ioctl(fd, SPI_IOC_WR_MODE, &mode) < 0) {
-		perror("Cannot set spi mode");
+		pabort("Cannot set spi mode");
 		return;
 	}
 	dumpstat(fd);

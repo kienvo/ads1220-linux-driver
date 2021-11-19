@@ -1,26 +1,16 @@
-CC = arm-linux-gnueabihf-gcc
-CFLAGS = -g 
-TARGET = opz/spi/spi
-SSHHOST = tesla@192.168.1.138
+PWD := $(shell pwd)
+obj-m += main.o
 
-.PHONY: all run clean rebuild kill debug
-all: $(TARGET)
-rebuild: clean $(TARGET)
+# KERNEL = kernel-header/linux-5.4.20/
+# CROSS = /usr/bin/arm-linux-gnueabihf-
+# ccflags-y +=  -xc -E -v
 
 
-$(TARGET): main.o
-	arm-linux-gnueabihf-gcc -o $@ $^
-
+#	# make -C kernel-header/linux-5.4.20 M=$(PWD) clean
+#	# make -C kernel-header/linux-5.4.20 M=$(PWD) modules
+all:
+	echo $(PWD)
+	make ARCH=arm CROSS_COMPILE=$(CROSS) -C $(KERNEL) M=$(PWD) modules
+	cp -rf main.ko opz/spi/
 clean:
-	$(RM) main.o
-	$(RM) $(TARGET)
-
-run:
-	ssh $(SSHHOST) 'exec PRJS/spi/spi -m6 /dev/spidev1.0'
-debug:
-	ssh $(SSHHOST) 'nohup gdbserver host:4444 PRJS/spi/spi -r 2 /dev/spidev1.0\
-	 >/dev/null 2>&1 &'
-
-kill:
-	ssh $(SSHHOST) 'kill -9 $$(ps -ef| grep gdbserver | sed -n  \
-	"s/[a-z]\+[\ t]*\([0-9]\+\) .*/\1/p"| head -1) '
+	make ARCH=arm CROSS_COMPILE=$(CROSS) -C $(KERNEL) M=$(PWD) clean

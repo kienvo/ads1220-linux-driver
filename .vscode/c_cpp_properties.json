@@ -1,0 +1,34 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}",
+                "kernel-header/linux-5.4.20/include/",
+				"kernel-header/linux-5.4.20/arch/arm/include",
+                "kernel-header/linux-5.4.20/arch/arm/include/generated",
+                "kernel-header/linux-5.4.20/arch/arm/include/uapi",
+                "kernel-header/linux-5.4.20/arch/arm/include/generated/uapi",
+                "kernel-header/linux-5.4.20/include/uapi",
+                "kernel-header/linux-5.4.20/include/generated/uapi",
+            ],
+            "defines": [
+                "__KERNEL__",
+                "__SMP__",
+                "MODULE"
+            ],
+            "intelliSenseMode": "linux-gcc-arm",
+            "compilerPath": "/usr/bin/arm-linux-gnueabihf-gcc",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "compilerArgs": [
+                "-g",
+                "-MMD",
+                "-isystem",
+                "-nostdinc"
+            ],
+            "configurationProvider": "ms-vscode.makefile-tools"
+        }
+    ],
+    "version": 4
+}

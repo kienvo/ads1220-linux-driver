@@ -32,6 +32,7 @@
 
 int param1;
 int cb_param = 0;
+int gpio11_irqn;
 
 static irqreturn_t gpio_irq_handler(int irq, void *dev_id) 
 {
@@ -169,14 +170,14 @@ static int __init hello_init(void)
 
 	gpio_direction_input(GPIO11);
 
-	int gpio11_irqn = gpio_to_irq(GPIO11);
+	gpio11_irqn = gpio_to_irq(GPIO11);
 	pr_info("gpio11 irq number: %d\n", gpio11_irqn);
 
 	if(request_irq(
 		gpio11_irqn, (void *)gpio_irq_handler, 
 		IRQF_TRIGGER_FALLING, "ads1220", NULL)) {
 		pr_err("cannot register IRQ\n");
-		goto r_gpio11;
+		goto r_gpio11_irq;
 	}
 
 
@@ -187,6 +188,8 @@ static int __init hello_init(void)
 	return 0;
 r_gpio11:
 	gpio_free(GPIO11);
+r_gpio11_irq:
+	free_irq(gpio11_irqn, NULL);
 r_gpio:
 	gpio_free(GPIO12);
 r_device:
@@ -203,6 +206,7 @@ r_unreg:
 
 static void __exit hello_exit(void) 
 {
+	free_irq(gpio11_irqn, NULL);
 	gpio_unexport(GPIO12);
 	gpio_free(GPIO12);
 	gpio_unexport(GPIO11);

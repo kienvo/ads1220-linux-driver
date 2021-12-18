@@ -54,11 +54,19 @@ static void ads1220_spi_txBuf(uint8_t const *tx, uint8_t const *rx, size_t len)
 			.rx_buf = (void *)rx,
 			.len	= len,
 		};
-		spi_sync_transfer(ads1220, &tr, 1);// TODO: return handle
+		spi_sync_transfer(ads1220, &tr, 1);// TODO: handle return value
 	}
 	
 }
 
+/**
+ * @brief 		Dump the hex
+ * 
+ * @param		src point to memory address to be dump
+ * @param		len length of bytes to be dump
+ * @param		line_size of console 
+ * @param		prefix of dump bytes
+ */
 static void hex_dump(const void *src, size_t len, size_t line_size, 
 	char *prefix) 
 // TODO: implement line_size later
@@ -70,26 +78,133 @@ static void hex_dump(const void *src, size_t len, size_t line_size,
 	}
 	mem = src;
 
-	printk("%s | ", prefix);
+	pr_info("%s | ", prefix);
 	while(len-- >0) {
-		printk("%02X ", *mem++);
+		printk(KERN_CONT"%02X ", *mem++);
 	}
-	printk("\n");
 }
 
-void test(void)
+void ads1220_exit(void) 
 {
-	uint8_t test_tx[] = {
-		0b00010000, 0, 0, 0
-	};
-	uint8_t test_rx[5];
-	ads1220_spi_txBuf(test_tx, test_rx, 4);
-	hex_dump(test_rx, 5, 32, "RX");
+	spi_unregister_device(ads1220);
 }
+
+
+
+static void ads1220_reset(void) 
+{
+	uint8_t cmd = ADS1220_CMD_RESET;
+
+	pr_info("Reset the device\n");
+	ads1220_spi_txBuf(&cmd, NULL, 1); // TODO: wrap to 1 byte
+	mdelay(2);
+}
+
+static void ads1220_sync(void)
+{
+	uint8_t cmd = ADS1220_CMD_SYNC;
+
+	pr_info("Restart conversions");
+	ads1220_spi_txBuf(&cmd, NULL, 1); // TODO: wrap to 1 byte
+}
+
+static void ads1220_pwrDown(void)
+{
+	uint8_t cmd = ADS1220_CMD_SHUTDOWN;
+
+	pr_info("Enter power-down mode\n");
+	ads1220_spi_txBuf(&cmd, NULL, 1);
+}
+
+static uint8_t ads1220_readReg(uint8_t reg) 
+{
+	uint8_t cmd = ADS1220_CMD_RREG | (reg<<2);
+	uint8_t tx[] = {cmd, 0};
+	uint8_t rx[2];
+
+	pr_info("Read register %02X\n", reg);
+	ads1220_spi_txBuf( tx, rx, 2);
+	return rx[1];
+}
+
+// TODO: need full duplex here
+static void ads1220_readAllRegs(uint8_t *ret) 
+{
+	uint8_t cmd = ADS1220_CMD_RREG | 0b11;
+	uint8_t tx[] = {cmd, 0, 0, 0, 0};
+
+	pr_info("Read all 4 registers");
+	ads1220_spi_txBuf(tx, ret, 5);
+}
+
+static void ads1220_writeReg(uint8_t reg, uint8_t val) 
+{
+	uint8_t cmd = ADS1220_CMD_WREG | (reg << 2);
+	uint8_t tx[] = {cmd, val};
+	uint8_t rx[2];
+
+	pr_info("Write registers %02X with value %02X", reg, val);
+	ads1220_spi_txBuf(tx, rx, 2);
+}
+
+static void ads1220_writeAllRegs(uint8_t *regs) 
+{
+	uint8_t cmd = ADS1220_CMD_WREG | 0b11;
+	uint8_t tx[5];
+
+	pr_info("Write all 4 regs with %02X %02X %02X %02X",
+		 regs[0], regs[1], regs[2], regs[3]);
+	tx[0] = cmd;
+	tx[1] = regs[0];
+	tx[2] = regs[1];
+	tx[3] = regs[2];
+	tx[4] = regs[3];
+
+	ads1220_spi_txBuf( tx, NULL, sizeof(tx));	
+}
+
+static void ads1220_config(void)
+{
+	uint8_t config[] = {
+		// p = AIN0, n = AVSS, gain = 1, PGA disabled
+		ADS1220_MUX_0_G | ADS1220_PGA_BYPASS,   
+		ADS1220_DR_1000 |ADS1220_MODE_TURBO | ADS1220_CC , 
+		ADS1220_REJECT_50 | ADS1220_MUX_EX_VREF, // 100
+		0
+	};
+	uint8_t regs_check[5];
+
+	ads1220_writeAllRegs(config);
+	ads1220_readAllRegs(regs_check);
+	if(memcmp(config, &regs_check[1], 4)) 
+		pr_err("Fail to config the device, or lose connection!\n"
+		"Please recheck the connection.");
+}
+
+
+static int32_t ads1220_humanReadable(uint8_t *data) 
+{
+	int32_t ret = 0;
+	ret |= data[0]<<24;
+	ret |= data[1]<<16;
+	ret |= data[2]<<8;
+	return ret/256;
+}
+
+static int32_t ads1220_get1SingleSample(void){
+	uint8_t tx[] = {0b00010000, 0, 0, 0};
+	uint8_t rx[sizeof(tx)];
+
+	ads1220_spi_txBuf(tx, rx, sizeof(tx));
+	// usleep(500);
+	return ads1220_humanReadable(&rx[1]);
+}
+
 
 int ads1220_init(void)
 {
 	struct spi_master *master;
+
 	master = spi_busnum_to_master(ads1220_info.bus_num);
 	if(!master) {
 		pr_err("SPI Master not found.\n");
@@ -106,221 +221,23 @@ int ads1220_init(void)
 		spi_unregister_device(ads1220);
 		return -ENODEV;
 	}
+
+	ads1220_reset();
+	ads1220_config();
+	ads1220_sync();
+
 	return 0;
 }
 
-void ads1220_exit(void) 
+
+void ads1220_test(void)
 {
-	spi_unregister_device(ads1220);
+	uint8_t test_tx[] = {
+		0b00010000, 0, 0, 0
+	};
+	uint8_t test_rx[5];
+	ads1220_spi_txBuf(test_tx, test_rx, 4);
+	hex_dump(test_rx, 5, 32, "RX");
+
+	pr_info("Last value: %d", ads1220_get1SingleSample());
 }
-
-
-// static void pabort(const char *s) 
-// {
-// 	if (errno != 0)
-// 		perror(s);
-// 	else 
-// 		printf("%s\n", s);
-// 	abort();
-// }
-
-// /**
-//  * @brief 		Dump the hex
-//  * 
-//  * @param		src point to memory address to be dump
-//  * @param		len length of bytes to be dump
-//  * @param		line_size of console 
-//  * @param		prefix of dump bytes
-//  */
-// static void hex_dump(const void *src, size_t len, size_t line_size, 
-// 	char *prefix) 
-// // TODO: implement line_size later
-// {
-// 	if(!src) { // == NULL
-// 		printf("__null__\n");
-// 		return;
-// 	}
-// 	const uint8_t *mem = src;
-
-// 	printf("%s | ", prefix);
-// 	while(len-- >0) {
-// 		printf("%02X ", *mem++);
-// 	}
-// 	printf("\n");
-// }
-
-
-// static void dumpstat(int fd)
-// {
-// 	__u8	lsb, bits;
-// 	__u32	mode, speed;
-
-// 	if (ioctl(fd, SPI_IOC_RD_MODE32, &mode) < 0) {
-// 		perror("SPI rd_mode");
-// 		return;
-// 	}
-// 	if (ioctl(fd, SPI_IOC_RD_LSB_FIRST, &lsb) < 0) {
-// 		perror("SPI rd_lsb_fist");
-// 		return;
-// 	}
-// 	if (ioctl(fd, SPI_IOC_RD_BITS_PER_WORD, &bits) < 0) {
-// 		perror("SPI bits_per_word");
-// 		return;
-// 	}
-// 	if (ioctl(fd, SPI_IOC_RD_MAX_SPEED_HZ, &speed) < 0) {
-// 		perror("SPI max_speed_hz");
-// 		return;
-// 	}
-
-// 	printf("spi mode 0x%x, %d bits %sper word, %d Hz max\n",
-// 		mode, bits, lsb ? "(lsb first) " : "", speed);
-// }
-
-// static void spi_transfer(int fd, uint8_t const *tx, uint8_t const *rx, size_t len) 
-// {
-// 	struct spi_ioc_transfer tr = {
-// 		.tx_buf = (unsigned long)tx,
-// 		.rx_buf = (unsigned long)rx,
-// 		.len 	= len,
-// 		// .delay_usecs
-// 		.speed_hz = 10000
-// 		// .bits_per_word
-// 	};
-
-// 	int ret = ioctl(fd, SPI_IOC_MESSAGE(1), &tr);
-// 	if (ret < 1)
-// 		pabort("can't send spi message");
-// 	if (verbose) {
-// 		hex_dump(tx, len, 32, "TX");
-// 		hex_dump(rx, len, 32, "RX");
-// 	}
-// }
-
-// // static void ads1220_
-
-// static void ads1220_reset(int fd) 
-// {
-// 	printf("Reset the device\n");
-// 	uint8_t cmd = ADS1220_CMD_RESET;
-// 	spi_transfer(fd, &cmd, NULL, 1);
-// 	usleep(2000);
-// }
-
-// static void ads1220_sync(int fd) 
-// {
-// 	printf("Start or restart conversions\n");
-// 	uint8_t cmd = ADS1220_CMD_SYNC;
-// 	spi_transfer(fd, &cmd, NULL, 1);
-// }
-
-// static void ads1220_pwrDown(int fd) 
-// {
-// 	printf("Enter power-down mode\n");
-// 	uint8_t cmd = ADS1220_CMD_SHUTDOWN;
-// 	spi_transfer(fd, &cmd, NULL, 1);
-// }
-
-// static uint8_t ads1220_readReg(int fd, uint8_t reg) 
-// {
-// 	printf("Read register %02X\n", reg);
-// 	uint8_t cmd = ADS1220_CMD_RREG | (reg<<2);
-// 	uint8_t tx[] = {cmd, 0};
-// 	uint8_t rx[2];
-// 	spi_transfer(fd, tx, rx, 2);
-// 	return rx[1];
-// }
-
-// // TODO: need full duplex here
-// static void ads1220_readAllRegs(int fd, uint8_t *ret) 
-// {
-// 	printf("Read all 4 registers \n");
-// 	uint8_t cmd = ADS1220_CMD_RREG | 0b11;
-// 	uint8_t tx[] = {cmd, 0, 0, 0, 0};
-// 	spi_transfer(fd, tx, ret, 5);
-// }
-
-// static void ads1220_writeReg(int fd, uint8_t reg, uint8_t val) 
-// {
-// 	printf("Write registers %02X with value %02X\n", reg, val);
-// 	uint8_t cmd = ADS1220_CMD_WREG | (reg << 2);
-// 	uint8_t tx[] = {cmd, val};
-// 	uint8_t rx[2];
-// 	spi_transfer(fd, tx, rx, 2);
-// }
-
-// static void ads1220_writeAllRegs(int fd, uint8_t *regs) 
-// {
-// 	printf("Write all 4 regs with %02X %02X %02X %02X\n",
-// 		 regs[0], regs[1], regs[2], regs[3]);
-// 	uint8_t cmd = ADS1220_CMD_WREG | 0b11;
-// 	uint8_t tx[] = {cmd, regs[0], regs[1], regs[2], regs[3]};
-// 	spi_transfer(fd, tx, NULL, sizeof(tx));	
-// }
-
-// static void ads1220_config(int fd) 
-// {
-// 	uint8_t config[] = {
-// 		// p = AIN0, n = AVSS, gain = 1, PGA disabled
-// 		ADS1220_MUX_0_G | ADS1220_PGA_BYPASS,   
-// 		ADS1220_DR_1000 |ADS1220_MODE_TURBO | ADS1220_CC , 
-// 		ADS1220_REJECT_50 | ADS1220_MUX_EX_VREF, // 100
-// 		0
-// 	};
-// 	uint8_t regs_check[5];
-
-// 	ads1220_writeAllRegs(fd, config);
-// 	ads1220_readAllRegs(fd, regs_check);
-// 	if(memcmp(config, &regs_check[1], 4)) 
-// 		pabort("Fail to config the device, or lost connect!\n"
-// 		"Please recheck the connection.");
-// }
-
-
-// static int32_t ads1220_humanReadable(uint8_t *data) 
-// {
-// 	int32_t ret = 0;
-// 	ret |= data[0]<<24;
-// 	ret |= data[1]<<16;
-// 	ret |= data[2]<<8;
-// 	return ret/256;
-// }
-
-// static int32_t ads1220_get1SingleSample(int fd) {
-// 	uint8_t tx[] = {0b00010000, 0, 0, 0};
-// 	uint8_t rx[sizeof(tx)];
-// 	spi_transfer(fd, tx, rx, sizeof(tx));
-// 	// usleep(500);
-// 	return ads1220_humanReadable(&rx[1]);
-// }
-
-// static int32_t ads1220_getSample(int fd, uint32_t us, FILE *toFile) 
-// {
-// 	verbose = 0; // turn off verbose
-// 	for(int i=0; i < us/500; i++) {
-// 		fprintf(toFile, "%i\n", ads1220_get1SingleSample(fd));
-// 		usleep(500); // 2000 sps
-// 	}
-// 	verbose = 1; // turn on verbose
-// }
-
-// static void ads1220_init(int fd)
-// {
-// 	ads1220_reset(fd);
-// 	ads1220_config(fd);
-// 	ads1220_sync(fd);
-// }
-
-// static void spi_init(int fd) 
-// {
-// 	uint8_t mode = SPI_MODE_1;
-// 	if (ioctl(fd, SPI_IOC_WR_MODE, &mode) < 0) {
-// 		pabort("Cannot set spi mode");
-// 		return;
-// 	}
-// 	dumpstat(fd);
-// }
-
-// static void gpio_init() 
-// {
-// 	if(gpio_is_valid())
-// }

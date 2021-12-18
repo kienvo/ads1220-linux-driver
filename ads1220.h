@@ -159,10 +159,11 @@
 #define ADS1220_DRDY_MODE   0x02
 
 #include <linux/spi/spi.h>
+#include <linux/delay.h>
 
 
 int ads1220_init(void);
 void ads1220_exit(void);
-void test(void);
+void ads1220_test(void);
 
 #endif /*ADS1220_H_*/

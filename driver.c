@@ -187,7 +187,7 @@ static int __init hello_init(void)
 		goto r_gpio11_irq;
 	}
 
-	test();
+	ads1220_test();
 
 
 	pr_info("Device driver inserted successfully\n");

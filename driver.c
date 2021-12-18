@@ -25,6 +25,7 @@
 #include <linux/gpio.h>
 
 #include <linux/interrupt.h>
+#include <linux/spi/spi.h>
 
 
 #define GPIO12 12
@@ -33,6 +34,104 @@
 int param1;
 int cb_param = 0;
 int gpio11_irqn;
+
+static struct spi_device *ads1220;
+
+struct spi_board_info ads1220_info =
+{
+	.modalias	= "ads1220spi",
+	.max_speed_hz = 20000,
+	.bus_num	= 1,
+	.chip_select = 1,
+	.mode		= SPI_MODE_1
+};
+
+static int ads1220_spi_txByte(uint8_t data)
+{
+	int ret;
+	uint8_t rx = 0x00;
+
+	if(ads1220) {
+		struct spi_transfer tr = {
+			.tx_buf = &data,
+			.rx_buf = &rx,
+			.len	= 1,
+		};
+		ret = spi_sync_transfer(ads1220, &tr, 1);
+	}
+	pr_info("ads1220_spi_txByte: rx: 0x%02X\n", rx);
+	return ret;
+}
+
+
+static void ads1220_spi_txBuf(uint8_t const *tx, uint8_t const *rx, size_t len) 
+{
+
+	if(ads1220) {
+		struct spi_transfer tr = {
+			.tx_buf = (void *)tx,
+			.rx_buf = (void *)rx,
+			.len	= len,
+		};
+		spi_sync_transfer(ads1220, &tr, 1);// TODO: return handle
+	}
+	
+}
+
+static void hex_dump(const void *src, size_t len, size_t line_size, 
+	char *prefix) 
+// TODO: implement line_size later
+{
+	const uint8_t *mem;
+	if(!src) { // == NULL
+		printk("__null__\n");
+		return;
+	}
+	mem = src;
+
+	printk("%s | ", prefix);
+	while(len-- >0) {
+		printk("%02X ", *mem++);
+	}
+	printk("\n");
+}
+
+static void test(void)
+{
+	uint8_t test_tx[] = {
+		0b00010000, 0, 0, 0
+	};
+	uint8_t test_rx[5];
+	ads1220_spi_txBuf(test_tx, test_rx, 4);
+	hex_dump(test_rx, 5, 32, "RX");
+}
+
+static int ads1220_init(void)
+{
+	struct spi_master *master;
+	master = spi_busnum_to_master(ads1220_info.bus_num);
+	if(!master) {
+		pr_err("SPI Master not found.\n");
+		return -ENODEV;
+	}
+	ads1220 = spi_new_device(master, &ads1220_info);
+	if(!ads1220) {
+		pr_err("Failed to create slave.\n");
+		return -ENODEV;
+	}
+	ads1220->bits_per_word = 8;
+	if(spi_setup(ads1220)) {
+		pr_err("Failed to setup slave.\n");
+		spi_unregister_device(ads1220);
+		return -ENODEV;
+	}
+	return 0;
+}
+
+static void ads1220_exit(void) 
+{
+	spi_unregister_device(ads1220);
+}
 
 static irqreturn_t gpio_irq_handler(int irq, void *dev_id) 
 {
@@ -121,9 +220,13 @@ module_param_cb(cb_param, &cb_param_ops, &cb_param, S_IRUGO|S_IWUSR);
 
 static int __init hello_init(void) 
 {
+	int ret;
 	printk(KERN_INFO "ads1220: Module loaded\n");
 
-	if (alloc_chrdev_region(&dev, 0, 1, "ads1220") < 0) {
+	ret = ads1220_init();
+	if(ret) return ret;
+
+	if (alloc_chrdev_region(&dev, 0, 1, "ads1220cdev") < 0) {
 		pr_err("Cannot allocate major number\n");
 		goto r_unreg;
 	}
@@ -180,7 +283,7 @@ static int __init hello_init(void)
 		goto r_gpio11_irq;
 	}
 
-
+	test();
 
 
 	pr_info("Device driver inserted successfully\n");
@@ -206,6 +309,7 @@ r_unreg:
 
 static void __exit hello_exit(void) 
 {
+	ads1220_exit();
 	free_irq(gpio11_irqn, NULL);
 	gpio_unexport(GPIO12);
 	gpio_free(GPIO12);

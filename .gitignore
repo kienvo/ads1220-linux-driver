@@ -1,0 +1,12 @@
+kernel-header/
+*.cmd
+*.o
+*.ko
+*.symvers
+*.d
+*.log
+*.mod
+*.mod.c
+*.gz
+*.order
+*.out

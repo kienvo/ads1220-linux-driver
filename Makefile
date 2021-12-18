@@ -1,6 +1,6 @@
 PWD := $(shell pwd)
-obj-m += ads1220.o
-ads1220-objs := driver.o
+obj-m += ads1220dev.o
+ads1220dev-objs := driver.o ads1220.o
 
 KERNEL = kernel-header/linux-5.4.20/
 CROSS = /usr/bin/arm-linux-gnueabihf-
@@ -11,6 +11,6 @@ CROSS = /usr/bin/arm-linux-gnueabihf-
 #	# make -C kernel-header/linux-5.4.20 M=$(PWD) modules
 all:
 	make ARCH=arm CROSS_COMPILE=$(CROSS) -C $(KERNEL) M=$(PWD) modules
-	cp -rf ads1220.ko opz/spi/
+	cp -rf ads1220dev.ko opz/spi/
 clean:
 	make ARCH=arm CROSS_COMPILE=$(CROSS) -C $(KERNEL) M=$(PWD) clean

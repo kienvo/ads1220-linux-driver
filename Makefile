@@ -1,6 +1,6 @@
 PWD := $(shell pwd)
 obj-m += ads1220dev.o
-ads1220dev-objs := driver.o ads1220.o
+ads1220dev-objs := driver.o ads1220.o devfile.o
 
 KERNEL = kernel-header/linux-5.4.20/
 CROSS = /usr/bin/arm-linux-gnueabihf-

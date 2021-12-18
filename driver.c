@@ -16,18 +16,16 @@
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 
-#include <linux/kdev_t.h>
-#include <linux/cdev.h>
 
 #include <linux/device.h>
 #include <linux/delay.h>
-#include <linux/uaccess.h>
 #include <linux/gpio.h>
 
 #include <linux/interrupt.h>
 #include <linux/spi/spi.h>
 
 #include "ads1220.h"
+#include "devfile.h"
 
 
 #define GPIO12 12
@@ -43,64 +41,6 @@ static irqreturn_t gpio_irq_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-dev_t dev=0;
-static struct  class *dev_class;
-static struct cdev etx_dev;
-
-static int etx_open(struct inode *inode, struct file * file)
-{
-	pr_info("Device file opened.\n");
-	return 0;
-}
-
-static int etx_release(struct inode *inode, struct file * file)
-{
-	pr_info("Device file closed.\n");
-	return 0;
-}
-
-static ssize_t 
-etx_read(struct file *fp, char __user *buf, size_t len, loff_t *off)
-{
-	uint8_t gpio_state = gpio_get_value(GPIO12);
-	len =1;
-	if (copy_to_user(buf, &gpio_state, len)>0) {
-		pr_err("ERROR: Copy to user failed.\n");
-	}
-	pr_info("Read GPIO12 = %d\n", gpio_state);
-	return 0;
-
-}
-
-static ssize_t 
-etx_write(struct file *fp, const char __user *buf, size_t len, loff_t *off)
-{
-	uint8_t kbuf[10];
-	if (copy_from_user(kbuf, buf, len) >0) {
-		pr_err("ERROR: copy_from_user failed.\n");
-	}
-	pr_info("Write GPIO12 = %c\n", kbuf[0]);
-	if(kbuf[0]=='1') 
-		gpio_set_value(GPIO12, 1);
-	else if (kbuf[0]=='0')
-		gpio_set_value(GPIO12, 0);
-	else 
-		pr_err("Unknown command.\n");
-	return len;
-}
-
-
-
-static struct file_operations fops =
-{
-	.owner	= THIS_MODULE,
-	.read 	= etx_read,
-	.write 	= etx_write,
-	.open 	= etx_open,
-	.release = etx_release,
-};
-
-
 module_param(param1, int, S_IRUSR| S_IWUSR);
 
 int notify_param(const char *val, const struct kernel_param *kp)
@@ -113,6 +53,8 @@ int notify_param(const char *val, const struct kernel_param *kp)
 	}
 	return -1;
 }
+
+
 
 const struct kernel_param_ops cb_param_ops = 
 {
@@ -130,31 +72,11 @@ static int __init hello_init(void)
 	ret = ads1220_init();
 	if(ret) return ret;
 
-	if (alloc_chrdev_region(&dev, 0, 1, "ads1220cdev") < 0) {
-		pr_err("Cannot allocate major number\n");
-		goto r_unreg;
-	}
-	pr_info("Major = %d minor = %d\n", MAJOR(dev), MINOR(dev));
-	cdev_init(&etx_dev, &fops);
-
-	if (cdev_add(&etx_dev, dev, 1) < 0) {
-		pr_err("cdev_add failed.\n");
-		goto r_del;
-	}
-
-	if((dev_class = class_create(THIS_MODULE, "ads_class")) == NULL) {
-		pr_err("class_create faled.\n");
-		goto r_class;
-	}
-
-	if(device_create(dev_class, NULL, dev, NULL, "ads1220")==NULL) {
-		pr_err("Cannot create the Device\n");
-		goto r_device;
-	}
+	if(devfile_init()) goto r_ads1220; 	// Error
 
 	if(gpio_is_valid(GPIO12)==false) {
 		pr_err("GPIO %d is not valid.\n", GPIO12);
-		goto r_device;
+		goto r_devfile;
 	}
 
 	if(gpio_request(GPIO12, "GPIO_12") <0 ) {
@@ -199,14 +121,10 @@ r_gpio11_irq:
 	free_irq(gpio11_irqn, NULL);
 r_gpio:
 	gpio_free(GPIO12);
-r_device:
-	device_destroy(dev_class, dev);
-r_class:
-	class_destroy(dev_class);
-r_del:
-	cdev_del(&etx_dev);
-r_unreg:
-	unregister_chrdev_region(dev, 1);
+r_devfile:
+	devfile_exit();
+r_ads1220:
+	ads1220_exit();
 
 	return 1;
 }
@@ -219,10 +137,7 @@ static void __exit hello_exit(void)
 	gpio_free(GPIO12);
 	gpio_unexport(GPIO11);
 	gpio_free(GPIO11);
-	device_destroy(dev_class, dev);
-	class_destroy(dev_class);
-	cdev_del(&etx_dev);
-	unregister_chrdev_region(dev, 1);
+	devfile_exit();
 	printk(KERN_INFO "ads1220: Module removed successfully\n");
 }
 

@@ -14,3 +14,7 @@ all:
 	cp -rf ads1220dev.ko opz/spi/
 clean:
 	make ARCH=arm CROSS_COMPILE=$(CROSS) -C $(KERNEL) M=$(PWD) clean
+
+app:
+	arm-linux-gnueabihf-gcc -o read read.c
+	cp -rf read opz/spi/

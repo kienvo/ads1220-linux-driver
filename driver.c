@@ -19,9 +19,7 @@
 
 #include <linux/device.h>
 #include <linux/delay.h>
-#include <linux/gpio.h>
 
-#include <linux/interrupt.h>
 #include <linux/spi/spi.h>
 
 #include "ads1220.h"
@@ -29,17 +27,9 @@
 
 
 #define GPIO12 12
-#define GPIO11 11
 
 int param1;
 int cb_param = 0;
-int gpio11_irqn;
-
-static irqreturn_t gpio_irq_handler(int irq, void *dev_id) 
-{
-	pr_info("IRQH: interrupted, irq: %d\n", irq);
-	return IRQ_HANDLED;
-}
 
 module_param(param1, int, S_IRUSR| S_IWUSR);
 
@@ -88,26 +78,6 @@ static int __init hello_init(void)
 
 	gpio_export(GPIO12, false);
 
-	if(gpio_is_valid(GPIO11)==false) {
-		pr_err("ERROR: GPIO%d is not valid.\n", GPIO11);
-		goto r_gpio11;
-	}
-	if(gpio_request(GPIO11, "GPIO11_IN") < 0) {
-		pr_err("ERROR: GPIO%d request failed.\n", GPIO11);
-		goto r_gpio11;
-	}
-
-	gpio_direction_input(GPIO11);
-
-	gpio11_irqn = gpio_to_irq(GPIO11);
-	pr_info("gpio11 irq number: %d\n", gpio11_irqn);
-
-	if(request_irq(
-		gpio11_irqn, (void *)gpio_irq_handler, 
-		IRQF_TRIGGER_FALLING, "ads1220", NULL)) {
-		pr_err("cannot register IRQ\n");
-		goto r_gpio11_irq;
-	}
 
 	ads1220_test();
 
@@ -115,10 +85,6 @@ static int __init hello_init(void)
 	pr_info("Device driver inserted successfully\n");
 
 	return 0;
-r_gpio11:
-	gpio_free(GPIO11);
-r_gpio11_irq:
-	free_irq(gpio11_irqn, NULL);
 r_gpio:
 	gpio_free(GPIO12);
 r_devfile:
@@ -132,11 +98,8 @@ r_ads1220:
 static void __exit hello_exit(void) 
 {
 	ads1220_exit();
-	free_irq(gpio11_irqn, NULL);
 	gpio_unexport(GPIO12);
 	gpio_free(GPIO12);
-	gpio_unexport(GPIO11);
-	gpio_free(GPIO11);
 	devfile_exit();
 	printk(KERN_INFO "ads1220: Module removed successfully\n");
 }

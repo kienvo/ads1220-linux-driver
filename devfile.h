@@ -14,6 +14,7 @@
 #include <linux/workqueue.h>
 
 #include <linux/jiffies.h>
+#include <linux/irqflags.h>
 
 #include "ads1220.h"
 

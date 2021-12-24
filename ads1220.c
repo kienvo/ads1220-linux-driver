@@ -23,7 +23,7 @@ struct spi_board_info ads1220_info =
 	.modalias	= "ads1220spi",
 	.max_speed_hz = 512000,		// 512000 is working but idk why
 	.bus_num	= 1,
-	.chip_select = 1,
+	.chip_select = 0,	// Got fix by disable 'compatible = spidev' in device tree
 	.mode		= SPI_MODE_1
 };
 

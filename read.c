@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdint.h>
+#include <linux/dma-mapping.h>
 
 int main() 
 {

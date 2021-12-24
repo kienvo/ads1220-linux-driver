@@ -21,7 +21,7 @@ static struct spi_device *ads1220;
 struct spi_board_info ads1220_info =
 {
 	.modalias	= "ads1220spi",
-	.max_speed_hz = 20000,
+	.max_speed_hz = 512000,		// 512000 is working but idk why
 	.bus_num	= 1,
 	.chip_select = 1,
 	.mode		= SPI_MODE_1
@@ -100,7 +100,7 @@ static void ads1220_reset(void)
 	mdelay(2);
 }
 
-static void ads1220_sync(void)
+void ads1220_sync(void)
 {
 	uint8_t cmd = ADS1220_CMD_SYNC;
 
@@ -170,7 +170,7 @@ static void ads1220_config(void)
 		ADS1220_MUX_0_G | ADS1220_PGA_BYPASS,   
 		ADS1220_DR_1000 |ADS1220_MODE_TURBO | ADS1220_CC , 
 		ADS1220_REJECT_50 | ADS1220_MUX_EX_VREF, // 100
-		0
+		0 	// 
 	};
 	uint8_t regs_check[5];
 
@@ -178,7 +178,7 @@ static void ads1220_config(void)
 	ads1220_readAllRegs(regs_check);
 	if(memcmp(config, &regs_check[1], 4)) 
 		pr_err("Fail to config the device, or lose connection!\n"
-		"Please recheck the connection.");
+		"Please recheck the connection.\n");
 }
 
 
@@ -191,13 +191,24 @@ static int32_t ads1220_humanReadable(uint8_t *data)
 	return ret/256;
 }
 
-static int32_t ads1220_get1SingleSample(void){
+int32_t ads1220_get1SingleSample(void)
+{
 	uint8_t tx[] = {0b00010000, 0, 0, 0};
 	uint8_t rx[sizeof(tx)];
 
 	ads1220_spi_txBuf(tx, rx, sizeof(tx));
 	// usleep(500);
 	return ads1220_humanReadable(&rx[1]);
+}
+
+int32_t ads1220_cc_getsample(void)
+{
+	uint8_t tx[] = {0, 0, 0};
+	uint8_t rx[3];
+
+	ads1220_spi_txBuf(tx, rx, sizeof(tx));
+	// usleep(500);
+	return ads1220_humanReadable(rx);
 }
 
 

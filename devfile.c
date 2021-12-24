@@ -12,54 +12,100 @@
 
 #include "devfile.h"
 
-dev_t dev=0;
+static dev_t dev=0;
 static struct  class *dev_class;
 static struct cdev etx_dev;
-static int test=0;
+static int is_read_comlete=0;
 static DECLARE_WAIT_QUEUE_HEAD(wq);
-int gpio11_irqn;
+static int gpio11_irqn, gpio12_irqn;
+static int32_t data;
 
 
-static irqreturn_t gpio_irq_handler(int irq, void *dev_id) 
+static void gpio12_work(struct work_struct *work);
+
+DECLARE_WORK(workq, gpio12_work);
+
+
+static irqreturn_t gpio11_irq_handler(int irq, void *dev_id) 
 {
-	int val = gpio_get_value(GPIO11);
-	pr_info("IRQH: interrupted, GPIO11: %d\n", val);
-	if(val==1) 
-		test++;
-	wake_up(&wq);
+	// static unsigned long flags = 0;
+	static unsigned long old_jifies=0;
+	unsigned long diff =  jiffies - old_jifies;
+	int val=0;
+	if(diff < HZ/10) { // 1/5 second
+		// pr_notice("ads1220: Interrupt ignored!\n");
+		return IRQ_HANDLED;
+	}
+	
+	old_jifies = jiffies;
+
+	val = gpio_get_value(GPIO11);
+	// local_irq_save(flags);
+	if(val==0) { // Button pressed
+		enable_irq(gpio12_irqn);
+	} else {
+		is_read_comlete=2;
+		wake_up_interruptible(&wq); // Occur an end of file
+	}
+	pr_notice("ads1220: Pressed! %d\n", val);
+
+	// local_irq_restore(flags);
 	return IRQ_HANDLED;
 }
+static irqreturn_t gpio12_irq_handler(int irq, void *dev_id)
+{
+	// pr_info("gpio12: interrupt\n");
+	schedule_work(&workq);
+	return IRQ_HANDLED;
+}	
 
+static void gpio12_work(struct work_struct *work)	
+{
+	data = ads1220_cc_getsample();
+	is_read_comlete=1;
+	wake_up_interruptible(&wq);
+}
+
+// TODO: check if device is connected
 static int etx_open(struct inode *inode, struct file * file)
 {
+	ads1220_sync();
+	ads1220_get1SingleSample();
+	is_read_comlete=0;
+
 	enable_irq(gpio11_irqn);
+	
 	pr_info("Device file opened.\n");
 	return 0;
 }
 
 static int etx_release(struct inode *inode, struct file * file)
 {
-	disable_irq(gpio11_irqn);
+	disable_hardirq(gpio11_irqn);
+	disable_hardirq(gpio12_irqn);
 	pr_info("Device file closed.\n");
 	return 0;
 }
 
 
-// TODO: Attemted read 4 byte, will be fixed after testing is done
+// TODO: Assume read 4 byte, will be fixed after testing is done
 static ssize_t 
 etx_read(struct file *fp, char __user *buf, size_t len, loff_t *off)
 {
-	int32_t c = 55555;
-	if (copy_to_user(buf, &c, len)>0) {
-		pr_err("ERROR: Copy to user failed.\n");
+	wait_event_interruptible(wq, is_read_comlete);
+	if(is_read_comlete == 1) {
+		is_read_comlete = 0;
+		if (copy_to_user(buf, &data, len)>0) {
+			pr_err("ERROR: Copy to user failed.\n");
+		}
+		return len;	
 	}
-	wait_event_timeout(wq, test>=3, 10*HZ); // 10s wait
-	if(test<3)
-		return len;	// end of file
-	else {
-		test = 0;
-		return 0;	
+	if(is_read_comlete == 2) {
+
+		is_read_comlete = 0;
+		return 0;	// end of file
 	}
+	return 0;
 
 }
 
@@ -73,9 +119,9 @@ etx_write(struct file *fp, const char __user *buf, size_t len, loff_t *off)
 	pr_info("Write GPIO12 = %c\n", kbuf[0]);
 	if(kbuf[0]=='1') 
 		//gpio_set_value(GPIO12, 1);
-		pr_info("device set to 1");
+		pr_info("device set to 1\n");
 	else if (kbuf[0]=='0')
-		pr_info("device set to 0");
+		pr_info("device set to 0\n");
 		// gpio_set_value(GPIO12, 0);
 	else 
 		pr_err("Unknown command.\n");
@@ -100,23 +146,20 @@ int devfile_init(void)
 	}
 	pr_info("Major = %d minor = %d\n", MAJOR(dev), MINOR(dev));
 	cdev_init(&etx_dev, &fops);
-
 	if (cdev_add(&etx_dev, dev, 1) < 0) {
 		pr_err("cdev_add failed.\n");
 		goto r_del;
 	}
-
 	if((dev_class = class_create(THIS_MODULE, "ads_class")) == NULL) {
 		pr_err("class_create faled.\n");
 		goto r_class;
 	}
-
 	if(device_create(dev_class, NULL, dev, NULL, "ads1220")==NULL) {
 		pr_err("Cannot create the Device\n");
 		goto r_device;
 	}
 	
-
+	/* GPIO11 */
 	if(gpio_is_valid(GPIO11)==false) {
 		pr_err("ERROR: GPIO%d is not valid.\n", GPIO11);
 		goto r_gpio11;
@@ -125,23 +168,46 @@ int devfile_init(void)
 		pr_err("ERROR: GPIO%d request failed.\n", GPIO11);
 		goto r_gpio11;
 	}
-
 	gpio_direction_input(GPIO11);
-
 	gpio11_irqn = gpio_to_irq(GPIO11);
-	pr_info("gpio11 irq number: %d\n", gpio11_irqn);
 
 	if(request_irq(
-		gpio11_irqn, (void *)gpio_irq_handler, 
-		IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING, "ads1220", NULL)) {
+		gpio11_irqn, (void *)gpio11_irq_handler, 
+		IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING, "ads1220_gpio11", NULL)) {
 		pr_err("cannot register IRQ\n");
 		goto r_gpio11_irq;
 	}
-	disable_irq(gpio11_irqn);
+	disable_hardirq(gpio11_irqn);
+
+	/* GPIO12 */
+	if(gpio_is_valid(GPIO12)==false) {
+		pr_err("ERROR: GPIO%d is not valid.\n", GPIO12);
+		goto r_gpio12;
+	}
+	if(gpio_request(GPIO12, "GPIO11_IN") < 0) {
+		pr_err("ERROR: GPIO%d request failed.\n", GPIO12);
+		goto r_gpio12;
+	}
+	gpio_direction_input(GPIO12);
+	gpio12_irqn = gpio_to_irq(GPIO12);
+
+	if (request_irq(
+		gpio12_irqn, (void *)gpio12_irq_handler,
+		IRQF_TRIGGER_FALLING , "ads1220_gpio12", NULL)
+		) {
+		pr_err("cannot register IRQ\n");
+		goto r_gpio12_irq;
+	}
+	disable_hardirq(gpio12_irqn);
+
 
 	return 0;
 
 
+r_gpio12_irq:
+	free_irq(gpio12_irqn, NULL);
+r_gpio12:
+	gpio_free(GPIO12);
 r_gpio11_irq:
 	free_irq(gpio11_irqn, NULL);
 r_gpio11:
@@ -168,4 +234,8 @@ void devfile_exit(void)
 	free_irq(gpio11_irqn, NULL);
 	gpio_unexport(GPIO11);
 	gpio_free(GPIO11);
+
+	free_irq(gpio12_irqn, NULL);
+	gpio_unexport(GPIO12);
+	gpio_free(GPIO12);
 }

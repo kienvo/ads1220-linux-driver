@@ -165,5 +165,8 @@
 int ads1220_init(void);
 void ads1220_exit(void);
 void ads1220_test(void);
+int32_t ads1220_get1SingleSample(void);
+void ads1220_sync(void);
+int32_t ads1220_cc_getsample(void);
 
 #endif /*ADS1220_H_*/

@@ -26,7 +26,6 @@
 #include "devfile.h"
 
 
-#define GPIO12 12
 
 int param1;
 int cb_param = 0;
@@ -64,20 +63,6 @@ static int __init hello_init(void)
 
 	if(devfile_init()) goto r_ads1220; 	// Error
 
-	if(gpio_is_valid(GPIO12)==false) {
-		pr_err("GPIO %d is not valid.\n", GPIO12);
-		goto r_devfile;
-	}
-
-	if(gpio_request(GPIO12, "GPIO_12") <0 ) {
-		pr_err("ERROR: GPIO %d request.\n", GPIO12);
-		goto r_gpio;
-	}
-
-	gpio_direction_output(GPIO12, 0);
-
-	gpio_export(GPIO12, false);
-
 
 	ads1220_test();
 
@@ -85,8 +70,7 @@ static int __init hello_init(void)
 	pr_info("Device driver inserted successfully\n");
 
 	return 0;
-r_gpio:
-	gpio_free(GPIO12);
+
 r_devfile:
 	devfile_exit();
 r_ads1220:
@@ -98,8 +82,6 @@ r_ads1220:
 static void __exit hello_exit(void) 
 {
 	ads1220_exit();
-	gpio_unexport(GPIO12);
-	gpio_free(GPIO12);
 	devfile_exit();
 	printk(KERN_INFO "ads1220: Module removed successfully\n");
 }

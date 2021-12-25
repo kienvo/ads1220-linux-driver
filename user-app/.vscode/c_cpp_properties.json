@@ -1,0 +1,18 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**"
+            ],
+            "defines": [],
+            "intelliSenseMode": "linux-gcc-arm",
+            "compilerPath": "/usr/bin/arm-linux-gnueabihf-gcc",
+            "compilerArgs": [
+                "-lsfml-system -lsfml-network"
+            ],
+            "configurationProvider": "ms-vscode.makefile-tools"
+        }
+    ],
+    "version": 4
+}

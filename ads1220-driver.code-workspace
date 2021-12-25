@@ -1,0 +1,45 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "user-app"
+		},
+		{
+			"path": "plotter"
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"*.lss": "avr",
+			"*.qss": "css",
+			"spi_lib.h": "c",
+			"stdio.h": "c",
+			"*.tcc": "c",
+			"fstream": "c",
+			"time.h": "c",
+			"thread": "c",
+			"unistd.h": "c",
+			"gpio.h": "c",
+			"spidev.h": "c",
+			"init.h": "c",
+			"module.h": "c",
+			"kernel.h": "c",
+			"driver.h": "c",
+			"consumer.h": "c",
+			"ads1220.h": "c",
+			"delay.h": "c",
+			"fs.h": "c",
+			"cdev.h": "c",
+			"uaccess.h": "c",
+			"interrupt.h": "c",
+			"spi.h": "c",
+			"device.h": "c",
+			"moduleparam.h": "c",
+			"dma-mapping.h": "c",
+			"fcntl.h": "c",
+			"iostream": "cpp"
+		}
+	}
+}

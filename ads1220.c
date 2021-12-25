@@ -127,7 +127,7 @@ static uint8_t ads1220_readReg(uint8_t reg)
 	return rx[1];
 }
 
-// TODO: need full duplex here
+
 static void ads1220_readAllRegs(uint8_t *ret) 
 {
 	uint8_t cmd = ADS1220_CMD_RREG | 0b11;

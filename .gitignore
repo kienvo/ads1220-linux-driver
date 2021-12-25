@@ -10,3 +10,11 @@ kernel-header/
 *.gz
 *.order
 *.out
+plotter
+read
+*.vscode/*
+*/.vscode/*
+!*/.vscode/c_cpp_properties.json
+opz/
+ads1220/
+spi/

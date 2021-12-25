@@ -61,7 +61,7 @@ static irqreturn_t gpio11_irq_handler(int irq, void *dev_id)
 	unsigned long diff =  jiffies - old_jifies;
 	int val=0;
 
-	if (!is_opening) return IRQ_HANDLED;
+	if (is_opening) return IRQ_HANDLED;
 
 	if(diff < HZ/10) { // 1/5 second
 		// pr_notice("ads1220: Interrupt ignored!\n");
@@ -101,12 +101,12 @@ static void gpio12_work(struct work_struct *work)
 static int etx_open(struct inode *inode, struct file * file)
 {
 	is_opening = true;
-	ads1220_sync();
-	ads1220_get1SingleSample();
+	ads1220_deconfig();
 
 	gpio11_irq_enable();
 	
 	
+	is_opening = false;
 	is_read_comlete=0;
 	pr_info("Device file opened.\n");
 	return 0;
@@ -117,7 +117,6 @@ static int etx_release(struct inode *inode, struct file * file)
 	gpio11_irq_disable();
 	gpio12_irq_disable();
 	pr_info("Device file closed.\n");
-	is_opening = false;
 	return 0;
 }
 

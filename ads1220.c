@@ -23,7 +23,7 @@ struct spi_board_info ads1220_info =
 	.modalias	= "ads1220spi",
 	.max_speed_hz = 512000,		// 512000 is working but idk why
 	.bus_num	= 1,
-	.chip_select = 0,	// Got fix by disable 'compatible = spidev' in device tree
+	.chip_select = 1,	// Got fix by disable 'compatible = spidev' in device tree
 	.mode		= SPI_MODE_1
 };
 
@@ -211,6 +211,13 @@ int32_t ads1220_cc_getsample(void)
 	return ads1220_humanReadable(rx);
 }
 
+void ads1220_deconfig(void) 
+{
+	ads1220_reset();
+	ads1220_config();
+	ads1220_sync();
+	ads1220_get1SingleSample();
+}
 
 int ads1220_init(void)
 {
@@ -233,9 +240,7 @@ int ads1220_init(void)
 		return -ENODEV;
 	}
 
-	ads1220_reset();
-	ads1220_config();
-	ads1220_sync();
+	ads1220_deconfig();
 
 	return 0;
 }

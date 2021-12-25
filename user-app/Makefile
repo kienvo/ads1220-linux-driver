@@ -1,11 +1,11 @@
-CC 	= arm-linux-gnueabihf-gcc
+CXX 	= arm-linux-gnueabihf-g++
 
 TARGETS += read
 
 .PHONY: all clean
 
 all: $(TARGETS)
-	cp -rf $(TARGETS) opz/spi/
+	cp -rf $(TARGETS) ../opz/spi/
 
 clean:
 	$(RM) $(TARGETS)

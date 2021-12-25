@@ -7,9 +7,9 @@
             ],
             "defines": [],
             "intelliSenseMode": "linux-gcc-arm",
-            "compilerPath": "/usr/bin/arm-linux-gnueabihf-gcc",
+            "compilerPath": "/usr/bin/arm-linux-gnueabihf-g++",
             "compilerArgs": [
-                "-lsfml-system -lsfml-network"
+                ""
             ],
             "configurationProvider": "ms-vscode.makefile-tools"
         }

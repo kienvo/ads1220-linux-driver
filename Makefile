@@ -9,12 +9,16 @@ CROSS = /usr/bin/arm-linux-gnueabihf-
 
 #	# make -C kernel-header/linux-5.4.20 M=$(PWD) clean
 #	# make -C kernel-header/linux-5.4.20 M=$(PWD) modules
-all:
+all: mod apps
+
+mod:
 	make ARCH=arm CROSS_COMPILE=$(CROSS) -C $(KERNEL) M=$(PWD) modules
 	cp -rf ads1220dev.ko opz/spi/
 clean:
 	make ARCH=arm CROSS_COMPILE=$(CROSS) -C $(KERNEL) M=$(PWD) clean
+	make -C /user-app clean
+	make -C /plotter clean
 
-app:
-	arm-linux-gnueabihf-gcc -o read read.c
-	cp -rf read opz/spi/
+apps:
+	make -C /user-app
+	make -C /plotter

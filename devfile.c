@@ -125,7 +125,15 @@ static int etx_release(struct inode *inode, struct file * file)
 static ssize_t 
 etx_read(struct file *fp, char __user *buf, size_t len, loff_t *off)
 {
-	wait_event_interruptible(wq, is_read_comlete);
+	int ret;
+	while(1){
+		ret = wait_event_interruptible_timeout(wq, is_read_comlete, HZ);
+		/* If the ads1220 is not respond return -1 */
+		if(ret == 0 && gpio12_irq_enabled) return -1;
+		if(ret == 0) continue;
+		break;
+	}
+	
 	if(is_read_comlete == 1) {
 		is_read_comlete = 0;
 		if (copy_to_user(buf, &data, len)>0) {

@@ -118,11 +118,21 @@ bool is_stdout_redirected()
 	return false;
 }
 
+void software_read() 
+{
+	int fd = open("/dev/ads1220", O_WRONLY|O_NONBLOCK);
+	write(fd, "1", 1);
+	close(fd);
+}
+
 int main() 
 {
 	int32_t data;
 	ssize_t ret;
 	// net_test();
+
+	software_read();
+
 	net *toPloter = new net(12345);
 	toPloter->Listener();
 

@@ -1,6 +1,6 @@
 
 CXX = g++
-LDLIBS +=  -lsfml-network -lsfml-system
+LDLIBS +=  -lsfml-network -lsfml-graphics -lsfml-window -lsfml-system
 
 TARGETS += plotter
 

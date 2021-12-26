@@ -2,6 +2,8 @@
 #include <SFML/Network.hpp>
 #include <SFML/Graphics.hpp>
 
+#include <unistd.h>
+
 #define FPS 0
 #define BUFSZ 50
 #define DISP_BUFSZ 2000
@@ -109,6 +111,5 @@ int main(int ac, char **av) {
 			window->display();
 		}
 	}
-	getchar();
 	return 0;
 }

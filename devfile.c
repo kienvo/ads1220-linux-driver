@@ -20,6 +20,7 @@ static DECLARE_WAIT_QUEUE_HEAD(wq);
 static int gpio11_irqn, gpio12_irqn;
 static int32_t data;
 static bool is_opening, gpio12_irq_enabled, gpio11_irq_enabled;
+static bool software_read;
 
 static void gpio12_irq_disable(void) {
 	if (gpio12_irq_enabled) {				
@@ -103,7 +104,10 @@ static int etx_open(struct inode *inode, struct file * file)
 	is_opening = true;
 	ads1220_deconfig();
 
-	gpio11_irq_enable();
+	if(software_read) {
+		gpio12_irq_enable();
+	} else 
+		gpio11_irq_enable();
 	
 	
 	is_opening = false;
@@ -157,13 +161,15 @@ etx_write(struct file *fp, const char __user *buf, size_t len, loff_t *off)
 	if (copy_from_user(kbuf, buf, len) >0) {
 		pr_err("ERROR: copy_from_user failed.\n");
 	}
-	pr_info("Write GPIO12 = %c\n", kbuf[0]);
-	if(kbuf[0]=='1') 
-		//gpio_set_value(GPIO12, 1);
-		pr_info("device set to 1\n");
-	else if (kbuf[0]=='0')
-		pr_info("device set to 0\n");
-		// gpio_set_value(GPIO12, 0);
+	if(kbuf[0]=='1') {
+		pr_info("ads1220: Set to software read\n");
+		software_read = true;
+	}
+		
+	else if (kbuf[0]=='0'){
+		pr_info("ads1220: Set to harware (button) read\n");
+		software_read = false;
+	}
 	else 
 		pr_err("Unknown command.\n");
 	return len;

@@ -150,11 +150,21 @@ int main()
 				"Will be restart in a moment\n";
 			close(fd);
 			fd = open("/dev/ads1220", O_RDONLY|O_NONBLOCK);
+			if(fd<0) {
+				perror("Module was not loaded");
+				return -1;
+			}
 		}
 		std::cout << data << std::endl;
 		int nwrite = toPloter->Write(data);
 		if (nwrite < 0) {
+			close(fd);	// For saving resource
 			toPloter->Listener();
+			fd = open("/dev/ads1220", O_RDONLY|O_NONBLOCK);
+			if(fd<0) {
+				perror("Module was not loaded");
+				return -1;
+			}
 		}
 		if(redirected) loading();
 	}

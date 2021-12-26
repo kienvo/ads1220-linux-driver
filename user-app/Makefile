@@ -1,4 +1,5 @@
 CXX 	= arm-linux-gnueabihf-g++
+LDLIBS  +=
 
 TARGETS += read
 

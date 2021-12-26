@@ -6,8 +6,13 @@
                 "${workspaceFolder}/**"
             ],
             "defines": [],
+            "cStandard": "gnu17",
+            "cppStandard": "gnu++17",
             "intelliSenseMode": "linux-gcc-x64",
-            "compilerPath": "/usr/bin/gcc"
+            "compilerPath": "/usr/bin/gcc",
+            "compilerArgs": [
+                "-lsfml-system -lsfml-network"
+            ]
         }
     ],
     "version": 4

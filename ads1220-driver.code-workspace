@@ -39,7 +39,9 @@
 			"moduleparam.h": "c",
 			"dma-mapping.h": "c",
 			"fcntl.h": "c",
-			"iostream": "cpp"
+			"iostream": "cpp",
+			"asio.hpp": "c",
+			"network_v4.hpp": "c"
 		}
 	}
 }

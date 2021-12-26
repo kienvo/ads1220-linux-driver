@@ -1,12 +1,13 @@
 
 CXX = g++
-CXXFLAGS += -lsfml-system -lsfml-network
+LDLIBS +=  -lsfml-network -lsfml-system
 
 TARGETS += plotter
 
 .PHONY: all clean
 
 all: $(TARGETS)
+
 
 clean:
 	$(RM) $(TARGETS)

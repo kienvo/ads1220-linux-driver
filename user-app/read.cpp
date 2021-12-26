@@ -48,7 +48,7 @@ public:
 		}
 		return nread;
 	}
-	int Write(char const *buf, int count)
+	int Write(void const *buf, int count)
 	{
 		int nwrite = write(accepted_client, buf, count);
 		if(write < 0) {
@@ -63,6 +63,9 @@ public:
 		s += '\n';	// TODO: temporarily let it here
 		return Write(s.c_str(), s.length());
 		
+	}
+	int Write(int32_t num) {
+		return Write(&num, sizeof(int32_t));
 	}
 	inline void Shutdown() 
 	{
@@ -79,9 +82,11 @@ _port(port)
 		perror("Cannot open socket");
 		exit(-1);
 	}
+	int option = 1;
+	setsockopt(_sockfd, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option));
 	_server_addr.sin_addr.s_addr	= INADDR_ANY;
 	_server_addr.sin_family 		= AF_INET;
-	_server_addr.sin_port 		= htons(port);
+	_server_addr.sin_port 			= htons(port);
 	if (bind(_sockfd, (struct sockaddr*)&_server_addr, sizeof(_server_addr))) {
 		perror("bind() error");
 		exit(1);
@@ -102,7 +107,7 @@ void net_test()
 	test.Read(buf, 200);
 	std::cerr << "Message is: " << buf << std::endl;
 
-	char *str = "Hello from Host\n";
+	const char *str = "Hello from Host\n";
 	test.Write(str, strlen(str));
 	std::cerr << "Message from Host has been sent" << std::endl;
 }
@@ -117,7 +122,7 @@ int main()
 {
 	int32_t data;
 	ssize_t ret;
-
+	// net_test();
 	net *toPloter = new net(12345);
 	toPloter->Listener();
 
@@ -137,11 +142,11 @@ int main()
 			return -1;
 		}
 		std::cout << data << std::endl;
-		toPloter->WriteAsChar(data);
+		toPloter->Write(data);
 		if(redirected) loading();
 	}
 	std::cerr << std::endl;
 	close(fd);
-	delete(toPloter);
+	delete toPloter;
 	return 0;
 }

@@ -3,21 +3,30 @@
 
 
 int main(int ac, char **av) {
+	const char *ip = "192.168.1.138";
+	unsigned short port = 12345;
 	std::cout << "Waiting" << std::endl; 
-	sf::TcpListener listener;
-	if (listener.listen(12345) != sf::Socket::Done) {
-		std::cerr << "listener: listen fail" << std::endl;
-		return -1;
+	sf::TcpSocket socket;
+	sf::Socket::Status status = socket.connect(ip, port);
+	if (status != sf::Socket::Done) {
+		std::cerr << "Cannot connect to " << ip << ':' << port << std::endl;
+		return 1;
 	}
-	sf::TcpSocket client;
-	if (listener.accept(client) != sf::Socket::Done) {
-		std::cerr << "listener: fail to accept client" << std::endl;
-		return -1;
-	}
-	char s[100]="abcdefsdfsdfsdsd";
-	if (client.send(s, 100) != sf::Socket::Done) {
-		std::cerr << "client socket: fail to send" << std::endl;
-		return -1;
+	// socket.send("sdssdsd", 7);
+	// std::size_t recv;
+	// char buf[100];
+	// socket.receive(buf, 100, recv);
+	// std::cerr << "Message is: " << buf << std::endl;
+
+	while(1) {
+		int32_t adcVal;
+		std::size_t received;
+		if(socket.receive(&adcVal, sizeof(int32_t), received)
+			!= sf::Socket::Done) {
+			std::cerr << "receive error " << std::endl;
+			return 1;
+		}
+		std::cout << adcVal << std::endl;
 	}
 	return 0;
 }

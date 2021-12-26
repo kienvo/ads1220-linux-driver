@@ -51,15 +51,19 @@ void apply_buf(sf::VertexArray *wave, std::vector<int32_t>& buf)
 void EventHandler(sf::RenderWindow& window){
 	sf::Event event;
 	while(window.pollEvent(event)) {
-		if(event.type == sf::Event::Closed) 
+		if(event.type == sf::Event::Closed) {
 			window.close();
+			exit(0);
+		}
 		else if(event.type == sf::Event::KeyPressed) {
 			if(sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
 				//
 			} else if(sf::Keyboard::isKeyPressed(sf::Keyboard::Escape)) {
 				window.close();
+				exit(0);
 			} else if(sf::Keyboard::isKeyPressed(sf::Keyboard::W) && event.key.control){
 				window.close();
+				exit(0);
 			}
 		}
 	}

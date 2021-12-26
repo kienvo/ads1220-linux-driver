@@ -51,9 +51,9 @@ public:
 	int Write(void const *buf, int count)
 	{
 		int nwrite = write(accepted_client, buf, count);
-		if(write < 0) {
+		if(nwrite < 0) {
 			perror("write error");
-			exit(1);
+			Shutdown();
 		}
 		return nwrite;
 	}
@@ -147,12 +147,15 @@ int main()
 	while(ret = read(fd, &data, sizeof(int32_t) )) {
 		if(ret == -1) {
 			std::cerr << "\nThere was a fault when read from device\n"
-				"Please restart\n";
+				"Will be restart in a moment\n";
 			close(fd);
-			return -1;
+			fd = open("/dev/ads1220", O_RDONLY|O_NONBLOCK);
 		}
 		std::cout << data << std::endl;
-		toPloter->Write(data);
+		int nwrite = toPloter->Write(data);
+		if (nwrite < 0) {
+			toPloter->Listener();
+		}
 		if(redirected) loading();
 	}
 	std::cerr << std::endl;
